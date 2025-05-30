@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Sistema de Turnos - SignalR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/6.0.0/signalr.min.js"></script>
+</head>
+<body>
+    <h1>Sistema de Turnos en Tiempo Real</h1>
+
+    <div>
+        <!--  Punto #1: Se solicita el nombre del cliente con prompt() -->
+        <!--  Punto #2: El nombre se guarda en una variable accesible -->
+        <strong>Nombre:</strong> <span id="nombreUsuario"></span><br>
+        <strong>Mi Turno:</strong> <span id="miTurno">No asignado</span>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <!--  Punto #3: Panel de botones ("Agendar Turno" y "Atender Turno") -->
+        <button onclick="agendarTurno()">Agendar Turno</button>
+        <button onclick="atenderTurno()">Atender Turno</button>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <!--  Punto #4: Lado derecho con turno actual y lista de espera -->
+        <!-- Punto #7: Lista de turnos en formato: Turno #N - Nombre -->
+        <h3>Turno Actual</h3>
+        <div id="turnoActual">Ninguno</div>
+
+        <h3>Turnos en Espera</h3>
+        <ul id="listaTurnos"></ul>
+    </div>
+
+    <script>
+        //  Punto #1: Se solicita el nombre al cargar
+        const nombre = prompt("Ingrese su nombre:");
+        document.getElementById("nombreUsuario").textContent = nombre;
+
+        let connection;
+        let miId = null;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            connection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/turnos")
+                .build();
+
+            // Punto #6: Todos los clientes reciben la actualización de la lista
+            //  Punto #10: Se actualiza el mensaje "Turno actual: Nombre – Turno #N"
+            connection.on("ActualizarTurnos", function (turnos, turnoActual) {
+                const lista = document.getElementById("listaTurnos");
+                lista.innerHTML = "";
+                turnos.forEach(t => {
+                    // Punto #7: Formato correcto de los turnos
+                    const li = document.createElement("li");
+                    li.textContent = `Turno #${t.id} - ${t.nombre_Cliente}`;
+                    lista.appendChild(li);
+                });
+
+                const actualDiv = document.getElementById("turnoActual");
+                if (turnoActual) {
+                    actualDiv.textContent = `Turno #${turnoActual.id} - ${turnoActual.nombre_Cliente}`;
+                } else {
+                    actualDiv.textContent = "Ninguno";
+                }
+            });
+
+            // Punto #8: Notificar al cliente que es su turno actual
+            connection.on("NotificarTurno", function (turno) {
+                if (turno.nombre_Cliente === nombre) {
+                    alert(`¡Es tu turno! Turno #${turno.id}`);
+                }
+            });
+
+            connection.start().then(() => {
+                console.log("Conectado al hub.");
+            }).catch(function (err) {
+                console.error(err.toString());
+            });
+        });
+
+        // Punto #5: Se agenda el turno con el nombre del cliente
+        function agendarTurno() {
+            connection.invoke("AgendarTurno", nombre).catch(err => console.error(err.toString()));
+        }
+
+        // Punto #9: Atender turno remueve el primero (asumido por lógica del backend)
+        function atenderTurno() {
+            connection.invoke("AtenderTurno").catch(err => console.error(err.toString()));
+        }
+    </script>
+</body>
+</html>
